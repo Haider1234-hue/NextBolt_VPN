@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:wireguard_flutter_plus/wireguard_flutter_plus.dart';
 import '../models/vpn_status.dart';
 import '../models/server_model.dart';
+import 'ip_lookup_service.dart';
 
 class VpnService extends ChangeNotifier {
   VpnStatus _status = VpnStatus.initial;
@@ -12,7 +14,25 @@ class VpnService extends ChangeNotifier {
   bool _isLoadingServers = false;
   String? _serverError;
   Timer? _sessionTimer;
-  Timer? _speedTimer;
+  Timer? _connectTimeoutTimer;
+
+  final _wireguard = WireGuardFlutter.instance;
+  bool _wireguardInitialized = false;
+  StreamSubscription<VpnStage>? _stageSub;
+  StreamSubscription<Map<String, dynamic>>? _trafficSub;
+
+  // TODO(ios): providerBundleIdentifier must match a Network Extension
+  // target created in Xcode (File > New > Target > Network Extension),
+  // sharing an App Group with the main app. See wireguard_flutter_plus'
+  // ios_setup_readme.md. Not usable on Android.
+  static const String _iosProviderBundleIdentifier =
+      'com.example.nextboltvpn.WGExtension';
+
+  VpnService() {
+    _stageSub = _wireguard.vpnStageSnapshot.listen(_onStageChanged);
+    _trafficSub = _wireguard.trafficSnapshot.listen(_onTraffic);
+    unawaited(_refreshOriginalIp());
+  }
 
   // ── API ───────────────────────────────────────────────────
   static const String _apiUrl =
@@ -78,26 +98,71 @@ class VpnService extends ChangeNotifier {
 
   // ── Connect ───────────────────────────────────────────────
   Future<void> connect() async {
-    if (_selectedServer == null) return;
-    if (_status.isConnecting) return;
+    final server = _selectedServer;
+    if (server == null) return;
+    if (!_status.isDisconnected) return;
     _updateState(VpnState.connecting);
-    await _simulateConnect();
+    _connectTimeoutTimer?.cancel();
+    _connectTimeoutTimer = Timer(const Duration(seconds: 25), _onConnectTimeout);
+    try {
+      if (!_wireguardInitialized) {
+        await _wireguard.initialize(
+          interfaceName: 'wg0',
+          vpnName: 'NextBolt VPN',
+        );
+        _wireguardInitialized = true;
+      }
+      await _wireguard.startVpn(
+        serverAddress: server.endpoint,
+        wgQuickConfig: getWireGuardConfig()!,
+        providerBundleIdentifier: _iosProviderBundleIdentifier,
+      );
+    } catch (e) {
+      _connectTimeoutTimer?.cancel();
+      _status = _status.copyWith(
+        state: VpnState.error,
+        errorMessage: 'Failed to start VPN: $e',
+      );
+      notifyListeners();
+    }
   }
 
   // ── Disconnect ────────────────────────────────────────────
   Future<void> disconnect() async {
     if (_status.isDisconnected) return;
+    _connectTimeoutTimer?.cancel();
     _updateState(VpnState.disconnecting);
-    await _simulateDisconnect();
+    try {
+      await _wireguard.stopVpn();
+    } catch (e) {
+      _status = _status.copyWith(
+        state: VpnState.error,
+        errorMessage: 'Failed to stop VPN: $e',
+      );
+      notifyListeners();
+    }
   }
 
   // ── Toggle ────────────────────────────────────────────────
   Future<void> toggle() async {
-    if (_status.isConnected) {
-      await disconnect();
-    } else if (_status.isDisconnected) {
+    if (_status.isDisconnected) {
       await connect();
+    } else {
+      // Connecting or disconnecting: tapping again cancels the attempt.
+      await disconnect();
     }
+  }
+
+  Future<void> _onConnectTimeout() async {
+    if (!_status.isConnecting) return;
+    try {
+      await _wireguard.stopVpn();
+    } catch (_) {}
+    _status = _status.copyWith(
+      state: VpnState.error,
+      errorMessage: 'Connection timed out. Check the server or your network and try again.',
+    );
+    notifyListeners();
   }
 
   // ── WireGuard config ──────────────────────────────────────
@@ -119,25 +184,92 @@ PersistentKeepalive = ${s.keepalive}
 ''';
   }
 
-  // ── Private: mock connection flow ─────────────────────────
-  Future<void> _simulateConnect() async {
-    await Future.delayed(const Duration(seconds: 3));
+  // ── WireGuard stage/traffic callbacks ─────────────────────
+  void _onStageChanged(VpnStage stage) {
+    switch (stage) {
+      case VpnStage.connecting:
+      case VpnStage.waitingConnection:
+      case VpnStage.authenticating:
+      case VpnStage.reconnect:
+      case VpnStage.preparing:
+        _updateState(VpnState.connecting);
+        break;
+      case VpnStage.connected:
+        _onTunnelConnected();
+        break;
+      case VpnStage.disconnecting:
+        _updateState(VpnState.disconnecting);
+        break;
+      case VpnStage.disconnected:
+      case VpnStage.noConnection:
+      case VpnStage.exiting:
+        _onTunnelDisconnected();
+        break;
+      case VpnStage.denied:
+        _stopTimers();
+        _status = _status.copyWith(
+          state: VpnState.error,
+          errorMessage: 'VPN permission denied',
+        );
+        notifyListeners();
+        break;
+    }
+  }
+
+  void _onTraffic(Map<String, dynamic> data) {
+    if (!_status.isConnected) return;
+    final dl = double.tryParse(data['downloadSpeed']?.toString() ?? '') ?? 0;
+    final ul = double.tryParse(data['uploadSpeed']?.toString() ?? '') ?? 0;
+    _status = _status.copyWith(
+      downloadSpeed: dl.round(),
+      uploadSpeed: ul.round(),
+    );
+    notifyListeners();
+  }
+
+  Future<void> _onTunnelConnected() async {
+    _connectTimeoutTimer?.cancel();
     _status = _status.copyWith(
       state: VpnState.connected,
-      currentIp: _selectedServer!.host,
-      originalIp: '203.0.113.42',
+      currentIp: null,
       sessionSeconds: 0,
     );
     notifyListeners();
     _startSessionTimer();
-    _startSpeedSimulator();
+
+    // The interface can come up before the WireGuard handshake finishes,
+    // so the first IP check may run through a tunnel that isn't passing
+    // traffic yet. Retry a few times before giving up.
+    for (var attempt = 0; attempt < 4; attempt++) {
+      if (!_status.isConnected) return;
+      final ip = await IpLookupService.fetchPublicIp();
+      if (ip != null) {
+        if (_status.isConnected) {
+          _status = _status.copyWith(currentIp: ip);
+          notifyListeners();
+        }
+        return;
+      }
+      await Future.delayed(const Duration(seconds: 4));
+    }
   }
 
-  Future<void> _simulateDisconnect() async {
+  void _onTunnelDisconnected() {
     _stopTimers();
-    await Future.delayed(const Duration(seconds: 1));
-    _status = VpnStatus.initial;
+    _status = VpnStatus(
+      state: VpnState.disconnected,
+      originalIp: _status.originalIp,
+    );
     notifyListeners();
+    unawaited(_refreshOriginalIp());
+  }
+
+  Future<void> _refreshOriginalIp() async {
+    final ip = await IpLookupService.fetchPublicIp();
+    if (ip != null && _status.isDisconnected) {
+      _status = _status.copyWith(originalIp: ip);
+      notifyListeners();
+    }
   }
 
   // ── Timers ────────────────────────────────────────────────
@@ -150,20 +282,11 @@ PersistentKeepalive = ${s.keepalive}
     });
   }
 
-  void _startSpeedSimulator() {
-    _speedTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      final dl = 300000 + (DateTime.now().millisecond * 1500);
-      final ul = 80000  + (DateTime.now().millisecond * 400);
-      _status = _status.copyWith(downloadSpeed: dl, uploadSpeed: ul);
-      notifyListeners();
-    });
-  }
-
   void _stopTimers() {
     _sessionTimer?.cancel();
-    _speedTimer?.cancel();
     _sessionTimer = null;
-    _speedTimer = null;
+    _connectTimeoutTimer?.cancel();
+    _connectTimeoutTimer = null;
   }
 
   void _updateState(VpnState state) {
@@ -174,6 +297,8 @@ PersistentKeepalive = ${s.keepalive}
   @override
   void dispose() {
     _stopTimers();
+    _stageSub?.cancel();
+    _trafficSub?.cancel();
     super.dispose();
   }
 }

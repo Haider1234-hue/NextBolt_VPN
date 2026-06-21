@@ -265,8 +265,9 @@ class _IpRow extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             status.isConnected
-                ? AppUtils.maskIp(
-                    status.currentIp ?? '0.0.0.0')
+                ? (status.currentIp != null
+                    ? AppUtils.maskIp(status.currentIp!)
+                    : 'Verifying…')
                 : (status.originalIp ?? '—'),
             style: const TextStyle(
               color: AppColors.textPrimary,
