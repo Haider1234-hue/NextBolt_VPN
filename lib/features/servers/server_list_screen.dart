@@ -200,8 +200,13 @@ class _ServerListScreenState extends State<ServerListScreen> {
                           server: s,
                           isSelected:
                               controller.selectedServer?.id == s.id,
-                          onTap: () => Navigator.pushNamed(
-                            context, '/premium'),
+                          // TEMP(testing): premium paywall bypassed to verify
+                          // all servers connect. Restore `Navigator.pushNamed(
+                          // context, '/premium')` before release.
+                          onTap: () {
+                            controller.selectServer(s);
+                            Navigator.pop(context);
+                          },
                         ),
                       ),
                     ],

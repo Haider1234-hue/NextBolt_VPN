@@ -12,7 +12,7 @@ class ServerModel {
   final String dns;
   final String allowedIps;
   final int keepalive;
-  final bool isPremium;       // true when is_free == "0"
+  final bool isPremium;       // from API's is_premium / is_free
   final String flagUrl;       // remote flag image URL
 
   const ServerModel({
@@ -38,19 +38,21 @@ class ServerModel {
     return ServerModel(
       id:           json['id']?.toString() ?? '',
       countryName:  json['country_name'] ?? '',
-      countryCode:  json['country_id'] ?? '',
+      countryCode:  json['country_code'] ?? '',
       city:         json['city_name'] ?? '',
       serverName:   json['server_name'] ?? '',
       endpoint:     json['endpoint'] ?? '',
-      publicKey:    json['public_key'] ?? '',
-      privateKey:   json['private_key'] ?? '',
+      publicKey:    json['peer_public_key'] ?? '',
+      privateKey:   json['interface_private_key'] ?? '',
       presharedKey: json['preshared_key'] ?? '',
-      address:      json['address'] ?? '',
+      address:      json['interface_address'] ?? '',
       dns:          json['dns'] ?? '1.1.1.1',
       allowedIps:   json['allowed_ips'] ?? '0.0.0.0/0',
       keepalive:    int.tryParse(json['keepalive']?.toString() ?? '25') ?? 25,
-      isPremium:    json['is_free']?.toString() == '0',
-      flagUrl:      json['country_flag'] ?? '',
+      isPremium:    json['is_premium'] is bool
+          ? json['is_premium'] as bool
+          : !(json['is_free'] == true || json['is_free']?.toString() == '1'),
+      flagUrl:      json['flag_url'] ?? '',
     );
   }
 

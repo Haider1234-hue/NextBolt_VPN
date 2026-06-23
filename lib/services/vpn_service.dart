@@ -36,7 +36,7 @@ class VpnService extends ChangeNotifier {
 
   // ── API ───────────────────────────────────────────────────
   static const String _apiUrl =
-      'https://nextvpn.nextsalution.com/vpn/wireguard_api.php';
+      'https://nextboltvpn.com/nextbolt/vpn/api/v3/api.php?action=get_servers&api_key=abb1b4c45ed5eb1920b6fd40041d525517fe590b39c03851';
 
   // ── Public getters ────────────────────────────────────────
   VpnStatus get status            => _status;
@@ -169,6 +169,8 @@ class VpnService extends ChangeNotifier {
   String? getWireGuardConfig() {
     final s = _selectedServer;
     if (s == null) return null;
+    final presharedLine =
+        s.presharedKey.isNotEmpty ? 'PresharedKey = ${s.presharedKey}\n' : '';
     return '''
 [Interface]
 PrivateKey = ${s.privateKey}
@@ -177,11 +179,10 @@ DNS = ${s.dns}
 
 [Peer]
 PublicKey = ${s.publicKey}
-PresharedKey = ${s.presharedKey}
-Endpoint = ${s.endpoint}
-AllowedIPs = ${s.allowedIps}
-PersistentKeepalive = ${s.keepalive}
-''';
+$presharedLine'''
+        'Endpoint = ${s.endpoint}\n'
+        'AllowedIPs = ${s.allowedIps}\n'
+        'PersistentKeepalive = ${s.keepalive}\n';
   }
 
   // ── WireGuard stage/traffic callbacks ─────────────────────
