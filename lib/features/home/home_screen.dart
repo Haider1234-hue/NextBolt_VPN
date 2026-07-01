@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
-import '../../core/constants/app_strings.dart';
+import '../../core/l10n/app_localizations.dart';
 import '../../core/utils/app_utils.dart';
 import '../../services/vpn_service.dart';
+import '../../services/settings_service.dart';
 import '../../models/vpn_status.dart';
 import 'home_controller.dart';
 import 'widgets/connect_button.dart';
@@ -27,9 +28,14 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final homeController = context.read<HomeController>();
-      context.read<VpnService>().fetchServers().then((_) {
+      final vpnService = context.read<VpnService>();
+      vpnService.fetchServers().then((_) {
         if (!mounted) return;
         homeController.ensureServerSelected();
+        if (context.read<SettingsService>().autoConnect &&
+            vpnService.status.isDisconnected) {
+          vpnService.connect();
+        }
       });
     });
   }
@@ -92,21 +98,45 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ── Home Tab ──────────────────────────────────────────────
-class _HomeTab extends StatelessWidget {
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  String? _lastShownError;
+
+  void _maybeShowError(VpnStatus status) {
+    final err = status.errorMessage;
+    if (status.state == VpnState.error && err != null && err != _lastShownError) {
+      _lastShownError = err;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err), duration: const Duration(seconds: 4)),
+        );
+      });
+    } else if (status.state != VpnState.error) {
+      _lastShownError = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<HomeController>(
       builder: (ctx, controller, _) {
         final status = controller.status;
+        final l10n = AppLocalizations.of(context);
+        _maybeShowError(status);
         return Container(
           decoration: const BoxDecoration(
               gradient: AppColors.bgGradient),
           child: SafeArea(
             child: Column(
               children: [
-                _buildAppBar(context),
+                _buildAppBar(context, l10n),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
@@ -119,7 +149,7 @@ class _HomeTab extends StatelessWidget {
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
                           child: Text(
-                            status.statusLabel,
+                            status.statusLabel(l10n),
                             key: ValueKey(status.state),
                             style: TextStyle(
                               color: status.statusColor,
@@ -147,6 +177,10 @@ class _HomeTab extends StatelessWidget {
 
                         // Stats
                         ConnectionStats(status: status),
+
+                        const SizedBox(height: AppSizes.md),
+
+                        _BandwidthUsageRow(controller: controller),
 
                         const SizedBox(height: AppSizes.md),
 
@@ -178,7 +212,7 @@ class _HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
+  Widget _buildAppBar(BuildContext context, AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(
           horizontal: AppSizes.md, vertical: AppSizes.sm),
@@ -195,9 +229,9 @@ class _HomeTab extends StatelessWidget {
                 color: Colors.black, size: 18),
           ),
           const SizedBox(width: 8),
-          const Text(
-            AppStrings.appName,
-            style: TextStyle(
+          Text(
+            l10n.appName,
+            style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -290,7 +324,7 @@ class _IpRow extends StatelessWidget {
             ),
             child: Text(
               status.isConnected
-                  ? '🔒 Protected'
+                  ? '🔒 ${AppLocalizations.of(context).protectedIp}'
                   : '⚠️ Exposed',
               style: TextStyle(
                 color: status.isConnected
@@ -299,6 +333,67 @@ class _IpRow extends StatelessWidget {
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Bandwidth Usage Row ───────────────────────────────────
+class _BandwidthUsageRow extends StatelessWidget {
+  final HomeController controller;
+  const _BandwidthUsageRow({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final used = controller.bandwidthUsedBytes;
+    final limit = controller.bandwidthLimitBytes;
+    final isPremium = controller.isPremiumUser;
+    final progress = limit > 0 ? (used / limit).clamp(0.0, 1.0) : 0.0;
+    final l10n = AppLocalizations.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                isPremium ? l10n.dataUsedThisMonth : l10n.dataUsedToday,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                '${AppUtils.formatDataSize(used)} / ${AppUtils.formatDataSize(limit)}',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              backgroundColor: AppColors.divider,
+              color: progress >= 1.0
+                  ? AppColors.disconnected
+                  : AppColors.cyan,
             ),
           ),
         ],
@@ -337,19 +432,19 @@ class _PremiumBanner extends StatelessWidget {
             const Icon(Icons.workspace_premium,
                 color: Color(0xFFFFD700), size: 28),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Upgrade to Pro',
-                      style: TextStyle(
+                  Text(AppLocalizations.of(context).upgradeToPro,
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       )),
-                  SizedBox(height: 2),
-                  Text('Unlock 50+ servers & 10x speed',
-                      style: TextStyle(
+                  const SizedBox(height: 2),
+                  Text(AppLocalizations.of(context).unlockServers,
+                      style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                       )),
@@ -369,8 +464,8 @@ class _PremiumBanner extends StatelessWidget {
                 borderRadius: BorderRadius.circular(
                     AppSizes.radiusFull),
               ),
-              child: const Text('Get Pro',
-                  style: TextStyle(
+              child: Text(AppLocalizations.of(context).getPro,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

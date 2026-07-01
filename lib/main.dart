@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'features/home/home_controller.dart';
 import 'services/vpn_service.dart';
+import 'services/settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => SettingsService()),
         ChangeNotifierProvider(create: (_) => VpnService()),
         ChangeNotifierProxyProvider<VpnService, HomeController>(
           create: (ctx) => HomeController(ctx.read<VpnService>()),

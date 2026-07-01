@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/l10n/app_localizations.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../models/vpn_status.dart';
 
@@ -11,6 +12,7 @@ class ConnectionStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
       opacity: status.isConnected ? 1.0 : 0.35,
@@ -26,21 +28,21 @@ class ConnectionStats extends StatelessWidget {
             Expanded(child: _StatItem(
               icon: Icons.arrow_downward_rounded,
               iconColor: AppColors.connected,
-              label: 'Download',
+              label: l10n.download,
               value: AppUtils.formatSpeed(status.downloadSpeed),
             )),
             Container(width: 1, height: 36, color: AppColors.divider),
             Expanded(child: _StatItem(
               icon: Icons.arrow_upward_rounded,
               iconColor: AppColors.cyan,
-              label: 'Upload',
+              label: l10n.upload,
               value: AppUtils.formatSpeed(status.uploadSpeed),
             )),
             Container(width: 1, height: 36, color: AppColors.divider),
             Expanded(child: _StatItem(
               icon: Icons.access_time_rounded,
               iconColor: AppColors.purple,
-              label: 'Duration',
+              label: l10n.duration,
               value: AppUtils.formatDuration(status.sessionSeconds),
             )),
           ],

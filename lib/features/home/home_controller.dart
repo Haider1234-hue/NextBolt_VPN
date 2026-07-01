@@ -17,6 +17,10 @@ class HomeController extends ChangeNotifier {
   bool get isLoadingServers       => _vpnService.isLoadingServers;
   String? get serverError         => _vpnService.serverError;
 
+  bool get isPremiumUser     => _vpnService.bandwidth.isPremium;
+  int get bandwidthUsedBytes => _vpnService.bandwidth.usedBytes;
+  int get bandwidthLimitBytes => _vpnService.bandwidth.limitBytes;
+
   /// Called by ProxyProvider when VpnService instance changes
   void updateVpnService(VpnService vpn) {
     _vpnService = vpn;

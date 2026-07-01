@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
-import '../../core/constants/app_strings.dart';
+import '../../core/l10n/app_localizations.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -14,27 +14,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageCtrl = PageController();
   int _currentIndex = 0;
 
-  static const List<_OnboardSlide> _slides = [
-    _OnboardSlide(
-      title: AppStrings.onboardTitle1,
-      body: AppStrings.onboardBody1,
-      icon: Icons.security_rounded,
-      glowColor: AppColors.cyan,
-    ),
-    _OnboardSlide(
-      title: AppStrings.onboardTitle2,
-      body: AppStrings.onboardBody2,
-      icon: Icons.public_rounded,
-      glowColor: AppColors.purple,
-    ),
-    _OnboardSlide(
-      title: AppStrings.onboardTitle3,
-      body: AppStrings.onboardBody3,
-      icon: Icons.verified_user_rounded,
-      glowColor: AppColors.connected,
-    ),
-  ];
-
   @override
   void dispose() {
     _pageCtrl.dispose();
@@ -42,7 +21,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _onNext() {
-    if (_currentIndex < _slides.length - 1) {
+    if (_currentIndex < 2) {
       _pageCtrl.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -58,23 +37,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLast = _currentIndex == _slides.length - 1;
+    final l10n = AppLocalizations.of(context);
+    final slides = [
+      _OnboardSlide(
+        title: l10n.onboardTitle1,
+        body: l10n.onboardBody1,
+        icon: Icons.security_rounded,
+        glowColor: AppColors.cyan,
+      ),
+      _OnboardSlide(
+        title: l10n.onboardTitle2,
+        body: l10n.onboardBody2,
+        icon: Icons.public_rounded,
+        glowColor: AppColors.purple,
+      ),
+      _OnboardSlide(
+        title: l10n.onboardTitle3,
+        body: l10n.onboardBody3,
+        icon: Icons.verified_user_rounded,
+        glowColor: AppColors.connected,
+      ),
+    ];
+    final isLast = _currentIndex == slides.length - 1;
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: Stack(
         children: [
-          // Background Gradient
           Container(
-            decoration: const BoxDecoration(
-              gradient: AppColors.bgGradient,
-            ),
+            decoration: const BoxDecoration(gradient: AppColors.bgGradient),
           ),
-          // Content
           SafeArea(
             child: Column(
               children: [
-                // Header (Skip button)
                 Align(
                   alignment: Alignment.topRight,
                   child: Padding(
@@ -86,9 +81,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ? const SizedBox(width: 48, height: 48)
                           : TextButton(
                               onPressed: _onSkip,
-                              child: const Text(
-                                AppStrings.skip,
-                                style: TextStyle(
+                              child: Text(
+                                l10n.skip,
+                                style: const TextStyle(
                                   color: AppColors.textHint,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -98,16 +93,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                 ),
-                // Pages
                 Expanded(
                   child: PageView.builder(
                     controller: _pageCtrl,
                     onPageChanged: (idx) {
                       setState(() => _currentIndex = idx);
                     },
-                    itemCount: _slides.length,
+                    itemCount: slides.length,
                     itemBuilder: (ctx, i) {
-                      final s = _slides[i];
+                      final s = slides[i];
                       return Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSizes.xl,
@@ -115,7 +109,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Beautiful glowing illustration icon
                             Container(
                               width: 160,
                               height: 160,
@@ -134,14 +127,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   ),
                                 ],
                               ),
-                              child: Icon(
-                                s.icon,
-                                color: s.glowColor,
-                                size: 72,
-                              ),
+                              child: Icon(s.icon, color: s.glowColor, size: 72),
                             ),
                             const SizedBox(height: 48),
-                            // Title
                             Text(
                               s.title,
                               textAlign: TextAlign.center,
@@ -152,7 +140,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            // Body
                             Text(
                               s.body,
                               textAlign: TextAlign.center,
@@ -168,7 +155,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     },
                   ),
                 ),
-                // Footer
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSizes.xl,
@@ -177,10 +163,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Page Indicators
                       Row(
                         children: List.generate(
-                          _slides.length,
+                          slides.length,
                           (idx) => AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             margin: const EdgeInsets.only(right: 6),
@@ -195,7 +180,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
                       ),
-                      // Next / Get Started button
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         decoration: BoxDecoration(
@@ -219,7 +203,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                isLast ? AppStrings.getStarted : AppStrings.next,
+                                isLast ? l10n.getStarted : l10n.next,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,

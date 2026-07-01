@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
-import '../core/constants/app_strings.dart';
+import '../core/l10n/app_localizations.dart';
 
 enum VpnState {
   disconnected,
@@ -55,13 +55,13 @@ class VpnStatus {
   bool get isDisconnected =>
       state == VpnState.disconnected || state == VpnState.error;
 
-  String get statusLabel {
+  String statusLabel(AppLocalizations l10n) {
     switch (state) {
-      case VpnState.disconnected:  return AppStrings.notConnected;
-      case VpnState.connecting:    return AppStrings.connecting;
-      case VpnState.connected:     return AppStrings.connected;
-      case VpnState.disconnecting: return AppStrings.disconnecting;
-      case VpnState.error:         return AppStrings.connectionFailed;
+      case VpnState.disconnected:  return l10n.notConnected;
+      case VpnState.connecting:    return l10n.connecting;
+      case VpnState.connected:     return l10n.connected;
+      case VpnState.disconnecting: return l10n.disconnecting;
+      case VpnState.error:         return l10n.connectionFailed;
     }
   }
 

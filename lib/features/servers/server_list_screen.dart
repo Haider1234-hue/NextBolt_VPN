@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
-import '../../core/constants/app_strings.dart';
+import '../../core/l10n/app_localizations.dart';
 import '../../services/vpn_service.dart';
 import '../../features/home/home_controller.dart';
 import '../../models/server_model.dart';
@@ -44,10 +44,11 @@ class _ServerListScreenState extends State<ServerListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       appBar: AppBar(
-        title: const Text(AppStrings.servers),
+        title: Text(l10n.servers),
         leading: Navigator.canPop(context)
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new),
@@ -60,15 +61,15 @@ class _ServerListScreenState extends State<ServerListScreen> {
 
           // ── Loading ──────────────────────────────────────
           if (vpnService.isLoadingServers) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(color: AppColors.cyan),
-                  SizedBox(height: AppSizes.md),
+                  const CircularProgressIndicator(color: AppColors.cyan),
+                  const SizedBox(height: AppSizes.md),
                   Text(
-                    'Loading servers...',
-                    style: TextStyle(
+                    l10n.splashLoading,
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
                     ),
@@ -135,9 +136,9 @@ class _ServerListScreenState extends State<ServerListScreen> {
                 child: TextField(
                   controller: _searchCtrl,
                   onChanged: (v) => setState(() => _query = v),
-                  decoration: const InputDecoration(
-                    hintText: AppStrings.searchServers,
-                    prefixIcon: Icon(
+                  decoration: InputDecoration(
+                    hintText: l10n.searchServers,
+                    prefixIcon: const Icon(
                       Icons.search,
                       color: AppColors.textHint,
                     ),
@@ -155,7 +156,7 @@ class _ServerListScreenState extends State<ServerListScreen> {
                 child: Row(
                   children: [
                     _Badge(
-                      label: '${vpnService.servers.length} servers',
+                      label: '${vpnService.servers.length} ${l10n.servers.toLowerCase()}',
                       color: AppColors.cyan,
                     ),
                     const SizedBox(width: 8),
@@ -172,7 +173,7 @@ class _ServerListScreenState extends State<ServerListScreen> {
                 child: ListView(
                   children: [
                     if (freeServers.isNotEmpty) ...[
-                      const _SectionHeader(AppStrings.freeServers),
+                      _SectionHeader(l10n.freeServers),
                       ...freeServers.map(
                         (s) => ServerTile(
                           server: s,
@@ -187,9 +188,9 @@ class _ServerListScreenState extends State<ServerListScreen> {
                     ],
                     if (premiumServers.isNotEmpty) ...[
                       const SizedBox(height: AppSizes.sm),
-                      const _SectionHeader(
-                        AppStrings.premiumServers,
-                        trailing: Icon(
+                      _SectionHeader(
+                        l10n.premiumServers,
+                        trailing: const Icon(
                           Icons.lock,
                           color: Color(0xFFFFD700),
                           size: 14,
@@ -200,12 +201,14 @@ class _ServerListScreenState extends State<ServerListScreen> {
                           server: s,
                           isSelected:
                               controller.selectedServer?.id == s.id,
-                          // TEMP(testing): premium paywall bypassed to verify
-                          // all servers connect. Restore `Navigator.pushNamed(
-                          // context, '/premium')` before release.
                           onTap: () {
-                            controller.selectServer(s);
-                            Navigator.pop(context);
+                            if (kDisableAccessRestrictionsForTesting ||
+                                vpnService.bandwidth.isPremium) {
+                              controller.selectServer(s);
+                              Navigator.pop(context);
+                            } else {
+                              Navigator.pushNamed(context, '/premium');
+                            }
                           },
                         ),
                       ),

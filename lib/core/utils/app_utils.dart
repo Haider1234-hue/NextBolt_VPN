@@ -22,6 +22,16 @@ class AppUtils {
 
   static String _twoDigit(int n) => n.toString().padLeft(2, '0');
 
+  /// Format a byte count into readable string: "120 MB", "2.1 GB"
+  static String formatDataSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
   /// Mask an IP for display when connected: 192.168.1.1 → 192.168.x.x
   static String maskIp(String ip) {
     final parts = ip.split('.');

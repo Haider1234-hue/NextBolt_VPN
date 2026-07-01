@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:wireguard_flutter_plus/wireguard_flutter_plus.dart';
+import 'package:amneziawg_flutter/wireguard_flutter_plus.dart';
 import '../models/vpn_status.dart';
 import '../models/server_model.dart';
 import 'ip_lookup_service.dart';
+import 'bandwidth_service.dart';
+
+const bool kDisableAccessRestrictionsForTesting = false;
 
 class VpnService extends ChangeNotifier {
   VpnStatus _status = VpnStatus.initial;
@@ -21,6 +24,10 @@ class VpnService extends ChangeNotifier {
   StreamSubscription<VpnStage>? _stageSub;
   StreamSubscription<Map<String, dynamic>>? _trafficSub;
 
+  final BandwidthService bandwidth = BandwidthService();
+  int _lastSessionBytes = 0;
+  bool _limitDisconnectTriggered = false;
+
   // TODO(ios): providerBundleIdentifier must match a Network Extension
   // target created in Xcode (File > New > Target > Network Extension),
   // sharing an App Group with the main app. See wireguard_flutter_plus'
@@ -28,10 +35,32 @@ class VpnService extends ChangeNotifier {
   static const String _iosProviderBundleIdentifier =
       'com.example.nextboltvpn.WGExtension';
 
+  // ── AmneziaWG obfuscation parameters ───────────────────────
+  // Real values confirmed from the Amnezia server's own generated config
+  // (verified against the Europe server: matching PrivateKey/PublicKey/
+  // Endpoint). Still applied to every server for now since the API doesn't
+  // return these per-server yet — fine as long as all servers share one
+  // Amnezia deployment config, but worth confirming if more servers are added.
+  static const int _awgJc = 4;
+  static const int _awgJmin = 40;
+  static const int _awgJmax = 70;
+  static const int _awgS1 = 0;
+  static const int _awgS2 = 0;
+  static const int _awgH1 = 1;
+  static const int _awgH2 = 2;
+  static const int _awgH3 = 3;
+  static const int _awgH4 = 4;
+
   VpnService() {
     _stageSub = _wireguard.vpnStageSnapshot.listen(_onStageChanged);
     _trafficSub = _wireguard.trafficSnapshot.listen(_onTraffic);
     unawaited(_refreshOriginalIp());
+    unawaited(bandwidth.init().then((_) => notifyListeners()));
+  }
+
+  Future<void> setPremiumUser(bool value) async {
+    await bandwidth.setPremium(value);
+    notifyListeners();
   }
 
   // ── API ───────────────────────────────────────────────────
@@ -101,6 +130,28 @@ class VpnService extends ChangeNotifier {
     final server = _selectedServer;
     if (server == null) return;
     if (!_status.isDisconnected) return;
+
+    if (!kDisableAccessRestrictionsForTesting) {
+      if (server.isPremium && !bandwidth.isPremium) {
+        _status = _status.copyWith(
+          state: VpnState.error,
+          errorMessage: 'This is a Premium server. Upgrade to Premium to use it.',
+        );
+        notifyListeners();
+        return;
+      }
+      if (bandwidth.isLimitReached) {
+        _status = _status.copyWith(
+          state: VpnState.error,
+          errorMessage: bandwidth.isPremium
+              ? 'Monthly data limit reached. It resets next month.'
+              : 'Daily free limit reached. Upgrade to Premium or try again tomorrow.',
+        );
+        notifyListeners();
+        return;
+      }
+    }
+
     _updateState(VpnState.connecting);
     _connectTimeoutTimer?.cancel();
     _connectTimeoutTimer = Timer(const Duration(seconds: 25), _onConnectTimeout);
@@ -176,6 +227,15 @@ class VpnService extends ChangeNotifier {
 PrivateKey = ${s.privateKey}
 Address = ${s.address}
 DNS = ${s.dns}
+Jc = $_awgJc
+Jmin = $_awgJmin
+Jmax = $_awgJmax
+S1 = $_awgS1
+S2 = $_awgS2
+H1 = $_awgH1
+H2 = $_awgH2
+H3 = $_awgH3
+H4 = $_awgH4
 
 [Peer]
 PublicKey = ${s.publicKey}
@@ -221,15 +281,50 @@ $presharedLine'''
     if (!_status.isConnected) return;
     final dl = double.tryParse(data['downloadSpeed']?.toString() ?? '') ?? 0;
     final ul = double.tryParse(data['uploadSpeed']?.toString() ?? '') ?? 0;
+
+    // totalDownload/totalUpload are cumulative KB for the current tunnel
+    // session (reset by the plugin on every fresh connect).
+    final totalDownloadKb = int.tryParse(data['totalDownload']?.toString() ?? '') ?? 0;
+    final totalUploadKb = int.tryParse(data['totalUpload']?.toString() ?? '') ?? 0;
+    final sessionBytes = (totalDownloadKb + totalUploadKb) * 1024;
+    final delta = sessionBytes - _lastSessionBytes;
+    if (delta > 0) {
+      _lastSessionBytes = sessionBytes;
+      unawaited(bandwidth.addUsage(delta));
+    }
+
     _status = _status.copyWith(
       downloadSpeed: dl.round(),
       uploadSpeed: ul.round(),
+    );
+    notifyListeners();
+
+    if (!kDisableAccessRestrictionsForTesting &&
+        bandwidth.isLimitReached &&
+        !_limitDisconnectTriggered) {
+      _limitDisconnectTriggered = true;
+      unawaited(_disconnectForLimitReached());
+    }
+  }
+
+  Future<void> _disconnectForLimitReached() async {
+    if (!_status.isConnected) return;
+    try {
+      await _wireguard.stopVpn();
+    } catch (_) {}
+    _status = _status.copyWith(
+      state: VpnState.error,
+      errorMessage: bandwidth.isPremium
+          ? 'Monthly data limit reached. It resets next month.'
+          : 'Daily free limit reached. Upgrade to Premium or try again tomorrow.',
     );
     notifyListeners();
   }
 
   Future<void> _onTunnelConnected() async {
     _connectTimeoutTimer?.cancel();
+    _lastSessionBytes = 0;
+    _limitDisconnectTriggered = false;
     _status = _status.copyWith(
       state: VpnState.connected,
       currentIp: null,
@@ -238,10 +333,13 @@ $presharedLine'''
     notifyListeners();
     _startSessionTimer();
 
-    // The interface can come up before the WireGuard handshake finishes,
-    // so the first IP check may run through a tunnel that isn't passing
-    // traffic yet. Retry a few times before giving up.
-    for (var attempt = 0; attempt < 4; attempt++) {
+    // The interface can come up before the AmneziaWG handshake finishes.
+    // Measured on real mobile data: the handshake can take 45-60s to
+    // complete (junk-packet obfuscation overhead + mobile network latency),
+    // well past what a typical WireGuard handshake needs. Retry generously
+    // before giving up so we don't disconnect a connection that's still
+    // legitimately negotiating.
+    for (var attempt = 0; attempt < 8; attempt++) {
       if (!_status.isConnected) return;
       final ip = await IpLookupService.fetchPublicIp();
       if (ip != null) {
@@ -253,6 +351,30 @@ $presharedLine'''
       }
       await Future.delayed(const Duration(seconds: 4));
     }
+
+    // All retries failed: the tunnel interface is up but no traffic is
+    // actually passing (e.g. handshake never completed). Since AllowedIPs
+    // routes 100% of device traffic into this dead tunnel, leaving it
+    // "connected" indefinitely would knock out all internet access with no
+    // recovery. Disconnect automatically instead of getting stuck.
+    if (_status.isConnected) {
+      await _disconnectUnverifiedConnection();
+    }
+  }
+
+  Future<void> _disconnectUnverifiedConnection() async {
+    if (!_status.isConnected) return;
+    try {
+      await _wireguard.stopVpn();
+    } catch (_) {}
+    _status = _status.copyWith(
+      state: VpnState.error,
+      errorMessage:
+          'Could not verify the connection, so it was disconnected to restore '
+          'your internet. The server may be unreachable right now — try again '
+          'or pick a different server.',
+    );
+    notifyListeners();
   }
 
   void _onTunnelDisconnected() {

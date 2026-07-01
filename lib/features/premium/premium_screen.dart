@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
-import '../../core/constants/app_strings.dart';
+import '../../core/l10n/app_localizations.dart';
+import '../../services/vpn_service.dart';
 
 class PremiumScreen extends StatefulWidget {
   const PremiumScreen({super.key});
@@ -85,18 +87,18 @@ class _PremiumScreenState extends State<PremiumScreen> {
                               size: 44),
                         ),
                         const SizedBox(height: AppSizes.md),
-                        const Text(
-                          AppStrings.upgradeToPro,
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context).upgradeToPro,
+                          style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          AppStrings.premiumTagline,
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context).premiumTagline,
+                          style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
                           ),
@@ -159,7 +161,22 @@ class _PremiumScreenState extends State<PremiumScreen> {
                                       AppSizes.radiusFull),
                                 ),
                               ),
-                              onPressed: () {},
+                              onPressed: () async {
+                                // NOTE: no real payment/IAP integration yet —
+                                // this flips the local premium flag so the
+                                // 100GB/month quota + premium servers can be
+                                // tested end-to-end.
+                                await context
+                                    .read<VpnService>()
+                                    .setPremiumUser(true);
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Premium activated (test mode).'),
+                                  ),
+                                );
+                                Navigator.pop(context);
+                              },
                               child: Text(
                                 'Subscribe ${_plans[_selectedPlan].label}',
                                 style: const TextStyle(
@@ -173,18 +190,18 @@ class _PremiumScreenState extends State<PremiumScreen> {
                         ),
                         TextButton(
                           onPressed: () {},
-                          child: const Text(
-                            AppStrings.restorePurchase,
-                            style: TextStyle(
+                          child: Text(
+                            AppLocalizations.of(context).restorePurchase,
+                            style: const TextStyle(
                                 color: AppColors.textHint,
                                 fontSize: 13),
                           ),
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text(
-                            AppStrings.continueWithFree,
-                            style: TextStyle(
+                          child: Text(
+                            AppLocalizations.of(context).continueWithFree,
+                            style: const TextStyle(
                                 color: AppColors.textHint,
                                 fontSize: 12),
                           ),

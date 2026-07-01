@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/l10n/app_localizations.dart';
 import '../../../models/server_model.dart';
 
 class ServerSelectorTile extends StatelessWidget {
@@ -15,6 +16,7 @@ class ServerSelectorTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final hasServer = server != null;
     return GestureDetector(
       onTap: onTap,
@@ -27,7 +29,6 @@ class ServerSelectorTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Flag or default globe icon
             Container(
               width: 40,
               height: 40,
@@ -37,24 +38,16 @@ class ServerSelectorTile extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: hasServer
-                  ? Text(
-                      server!.flag,
-                      style: const TextStyle(fontSize: 22),
-                    )
-                  : const Icon(
-                      Icons.public,
-                      color: AppColors.cyan,
-                      size: 22,
-                    ),
+                  ? Text(server!.flag, style: const TextStyle(fontSize: 22))
+                  : const Icon(Icons.public, color: AppColors.cyan, size: 22),
             ),
             const SizedBox(width: 12),
-            // Server names
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hasServer ? server!.countryName : 'Best Location',
+                    hasServer ? server!.countryName : l10n.bestLocation,
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
@@ -63,7 +56,7 @@ class ServerSelectorTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    hasServer ? server!.city : 'Select fastest server',
+                    hasServer ? server!.city : l10n.selectFastestServer,
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
@@ -73,10 +66,10 @@ class ServerSelectorTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Premium tag if needed
             if (hasServer && server!.isPremium) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFFFFD700), Color(0xFFFF8F00)],
@@ -94,7 +87,6 @@ class ServerSelectorTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            // Chevron arrow
             const Icon(
               Icons.chevron_right_rounded,
               color: AppColors.textHint,

@@ -12,7 +12,7 @@ class IpLookupService {
     try {
       final response = await http
           .get(Uri.parse(_url))
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 4));
       if (response.statusCode != 200) return null;
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return json['ip'] as String?;

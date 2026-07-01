@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_strings.dart';
+import '../../core/l10n/app_localizations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -52,6 +52,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -64,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen>
               opacity: _fadeAnim,
               child: Transform.scale(
                 scale: _scaleAnim.value,
-                child: _buildLogo(),
+                child: _buildLogo(l10n),
               ),
             ),
           ),
@@ -73,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Widget _buildLogo() {
+  Widget _buildLogo(AppLocalizations l10n) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -98,9 +99,9 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
         const SizedBox(height: 20),
-        const Text(
-          AppStrings.appName,
-          style: TextStyle(
+        Text(
+          l10n.appName,
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -108,9 +109,9 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          AppStrings.appTagline,
-          style: TextStyle(
+        Text(
+          l10n.appTagline,
+          style: const TextStyle(
             color: AppColors.cyan,
             fontSize: 13,
             fontWeight: FontWeight.w500,

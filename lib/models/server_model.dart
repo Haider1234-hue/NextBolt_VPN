@@ -1,4 +1,7 @@
 class ServerModel {
+  // Business rule: US & India are the free tier; every other country is paid.
+  static const Set<String> _freeCountryCodes = {'US', 'IN'};
+
   final String id;
   final String countryName;
   final String countryCode;
@@ -49,9 +52,8 @@ class ServerModel {
       dns:          json['dns'] ?? '1.1.1.1',
       allowedIps:   json['allowed_ips'] ?? '0.0.0.0/0',
       keepalive:    int.tryParse(json['keepalive']?.toString() ?? '25') ?? 25,
-      isPremium:    json['is_premium'] is bool
-          ? json['is_premium'] as bool
-          : !(json['is_free'] == true || json['is_free']?.toString() == '1'),
+      isPremium:    !_freeCountryCodes
+          .contains((json['country_code'] ?? '').toString().toUpperCase()),
       flagUrl:      json['flag_url'] ?? '',
     );
   }
