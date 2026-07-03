@@ -94,4 +94,8 @@ class WireGuardFlutter extends WireGuardFlutterInterface {
   /// Returns the current traffic statistics.
   @override
   Future<Map<String, dynamic>> trafficStats() => _instance.trafficStats();
+
+  /// Enables or disables the kill switch (blocking null-VPN).
+  @override
+  Future<void> setKillSwitch(bool enabled) => _instance.setKillSwitch(enabled);
 }

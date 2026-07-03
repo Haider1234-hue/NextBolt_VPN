@@ -1,24 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/l10n/app_localizations.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../../services/settings_service.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
-  static const List<String> _protocols = ['WireGuard', 'OpenVPN', 'IKEv2'];
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  static const List<String> _protocols = ['WireGuard', 'AmneziaWG', 'Xray'];
   static const List<String> _languages = ['English', 'Español', 'Deutsch', 'Français'];
 
-  // Support URLs — update these to match your live domain paths
-  static const String _privacyPolicyUrl   = 'https://nextboltvpn.com/privacy-policy';
-  static const String _termsUrl           = 'https://nextboltvpn.com/terms-of-service';
-  static const String _supportEmail       = 'support@nextboltvpn.com';
-  // Update the package ID below once the app is published on Play Store
+  static const String _privacyPolicyUrl = 'https://nextboltvpn.com/privacy-policy';
+  static const String _termsUrl         = 'https://nextboltvpn.com/terms-of-service';
+  static const String _helpCenterUrl    = 'https://nextboltvpn.com/help';
+  static const String _supportEmail     = 'support@nextboltvpn.com';
+  // TODO: replace with real Play Store listing ID once published
   static const String _playStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.example.nextboltvpn';
+      'https://play.google.com/store/apps/details?id=com.nextboltvpn.app';
+
+  String _version = '';
+  String _buildNumber = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _version = info.version;
+        _buildNumber = info.buildNumber;
+      });
+    }
+  }
 
   Future<void> _launchUrl(BuildContext context, String url) async {
     final uri = Uri.parse(url);
@@ -151,6 +178,15 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<SettingsService>(
       builder: (context, settings, _) {
+        // Wait for SharedPreferences to load before rendering toggles.
+        // Without this guard, switches briefly show their initial `false`
+        // default and a race-condition toggle during _load() would reset them.
+        if (!settings.loaded) {
+          return const Scaffold(
+            backgroundColor: AppColors.bgDark,
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
         final l10n = AppLocalizations.of(context);
         return Scaffold(
           backgroundColor: AppColors.bgDark,
@@ -218,6 +254,7 @@ class SettingsScreen extends StatelessWidget {
                   icon: Icons.star_rate_rounded,
                   iconColor: const Color(0xFFFFD700),
                   title: l10n.rateUs,
+                  subtitle: 'Enjoying the app? Leave us a review',
                   onTap: () => _launchUrl(context, _playStoreUrl),
                 ),
                 const Divider(),
@@ -225,13 +262,31 @@ class SettingsScreen extends StatelessWidget {
                   icon: Icons.headset_mic_rounded,
                   iconColor: AppColors.cyan,
                   title: l10n.contactSupport,
+                  subtitle: _supportEmail,
                   onTap: () => _launchEmail(context),
+                ),
+                const Divider(),
+                _buildActionTile(
+                  icon: Icons.help_outline_rounded,
+                  iconColor: AppColors.connecting,
+                  title: 'Help Center',
+                  subtitle: 'FAQs, guides & troubleshooting',
+                  onTap: () => _launchUrl(context, _helpCenterUrl),
+                ),
+                const Divider(),
+                _buildActionTile(
+                  icon: Icons.share_rounded,
+                  iconColor: AppColors.connected,
+                  title: 'Share NextBolt VPN',
+                  subtitle: 'Recommend us to friends & family',
+                  onTap: _shareApp,
                 ),
                 const Divider(),
                 _buildActionTile(
                   icon: Icons.policy_rounded,
                   iconColor: AppColors.purple,
                   title: l10n.privacyPolicy,
+                  subtitle: 'How we handle your data',
                   onTap: () => _launchUrl(context, _privacyPolicyUrl),
                 ),
                 const Divider(),
@@ -239,6 +294,7 @@ class SettingsScreen extends StatelessWidget {
                   icon: Icons.description_rounded,
                   iconColor: AppColors.purple,
                   title: l10n.termsOfService,
+                  subtitle: 'Rules and conditions of use',
                   onTap: () => _launchUrl(context, _termsUrl),
                 ),
               ]),
@@ -258,7 +314,9 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${l10n.appVersion} 1.0.0 (Build 42)',
+                      _version.isEmpty
+                          ? l10n.appVersion
+                          : '${l10n.appVersion} $_version (Build $_buildNumber)',
                       style: const TextStyle(
                         color: AppColors.textHint,
                         fontSize: 11,
@@ -304,39 +362,41 @@ class SettingsScreen extends StatelessWidget {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.md,
-        vertical: 4,
-      ),
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
+    return TvFocusable(
+      onTap: () => onChanged(!value),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.md,
+          vertical: 4,
         ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: iconColor, size: 20),
         ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 11,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+        trailing: ExcludeFocus(
+          child: Switch(value: value, onChanged: onChanged),
+        ),
       ),
     );
   }
@@ -349,57 +409,74 @@ class SettingsScreen extends StatelessWidget {
     required String value,
     required VoidCallback onTap,
   }) {
-    return ListTile(
+    return TvFocusable(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.md,
-        vertical: 4,
-      ),
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.md,
+          vertical: 4,
         ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: iconColor, size: 20),
         ),
-      ),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+              )
+            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
               style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
+                color: AppColors.cyan,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
-            )
-          : null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.cyan,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.textHint,
-            size: 20,
-          ),
-        ],
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textHint,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _shareApp() {
+    const text =
+        'Stay private online with NextBolt VPN — fast, secure & easy to use.\n'
+        'Download it now: https://nextboltvpn.com';
+    Clipboard.setData(const ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Share link copied to clipboard!'),
+        backgroundColor: AppColors.connected,
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -408,36 +485,49 @@ class SettingsScreen extends StatelessWidget {
     required IconData icon,
     required Color iconColor,
     required String title,
+    String? subtitle,
     required VoidCallback onTap,
   }) {
-    return ListTile(
+    return TvFocusable(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.md,
-        vertical: 4,
-      ),
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.md,
+          vertical: 4,
         ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: iconColor, size: 20),
         ),
-      ),
-      trailing: const Icon(
-        Icons.chevron_right_rounded,
-        color: AppColors.textHint,
-        size: 20,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+              )
+            : null,
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: AppColors.textHint,
+          size: 20,
+        ),
       ),
     );
   }

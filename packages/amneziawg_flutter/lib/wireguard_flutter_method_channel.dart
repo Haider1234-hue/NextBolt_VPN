@@ -89,4 +89,8 @@ class WireGuardFlutterMethodChannel extends WireGuardFlutterInterface {
       return false;
     }
   }
+
+  @override
+  Future<void> setKillSwitch(bool enabled) =>
+      _methodChannel.invokeMethod('setKillSwitch', {'enabled': enabled});
 }

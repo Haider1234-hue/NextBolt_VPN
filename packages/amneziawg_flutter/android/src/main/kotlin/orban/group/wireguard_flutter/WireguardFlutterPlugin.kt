@@ -328,7 +328,11 @@ if (!savedTunnelName.isNullOrEmpty() && !savedConfigString.isNullOrEmpty()) {
         "getUploadData" -> {
             getUploadData(result)
         }
-        
+        "setKillSwitch" -> {
+            val enabled = call.argument<Boolean>("enabled") ?: false
+            setKillSwitch(enabled, result)
+        }
+
             else -> flutterNotImplemented(result)
         }
     }
@@ -885,6 +889,22 @@ private fun deleteActiveTunnel() {
     config = null
 }
 
+private fun setKillSwitch(enabled: Boolean, result: Result) {
+    val intent = Intent(context, KillSwitchVpnService::class.java)
+    if (enabled) {
+        intent.action = KillSwitchVpnService.ACTION_START
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
+    } else {
+        intent.action = KillSwitchVpnService.ACTION_STOP
+        context.startService(intent)
+    }
+    flutterSuccess(result, "")
+}
+
 
 }
 
@@ -1020,7 +1040,92 @@ class VpnForegroundService : Service() {
 
    private fun getCurrentDuration(): String {
     return VpnTrafficStats.duration
- 
+
    }
 
+}
+
+// Blocking VPN service used by the kill switch feature.
+// Routes all traffic (0.0.0.0/0 + ::/0) into a TUN interface that discards
+// every packet, effectively cutting internet access until the real VPN
+// reconnects or the user explicitly disables the kill switch.
+class KillSwitchVpnService : VpnService() {
+
+    companion object {
+        const val ACTION_START = "orban.group.wireguard_flutter.KILL_SWITCH_START"
+        const val ACTION_STOP  = "orban.group.wireguard_flutter.KILL_SWITCH_STOP"
+        private const val CHANNEL_ID      = "kill_switch_channel"
+        private const val NOTIFICATION_ID = 202
+    }
+
+    private var tunFd: android.os.ParcelFileDescriptor? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(NOTIFICATION_ID, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        establishBlockingTunnel()
+        return START_STICKY
+    }
+
+    private fun establishBlockingTunnel() {
+        try {
+            tunFd = Builder()
+                .setSession("Kill Switch")
+                .addAddress("10.255.255.1", 32)
+                .addRoute("0.0.0.0", 0)
+                .addRoute("::", 0)
+                .setMtu(1500)
+                .establish()
+            Log.i("KillSwitch", "Blocking tunnel established — internet is blocked")
+        } catch (e: Exception) {
+            Log.e("KillSwitch", "Failed to establish blocking tunnel: ${e.message}")
+            stopSelf()
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val ch = NotificationChannel(CHANNEL_ID, "Kill Switch",
+                NotificationManager.IMPORTANCE_LOW)
+            getSystemService(NotificationManager::class.java)?.createNotificationChannel(ch)
+        }
+    }
+
+    private fun buildNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Kill Switch Active")
+            .setContentText("Internet blocked — VPN disconnected unexpectedly")
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setOngoing(true)
+            .build()
+    }
+
+    override fun onDestroy() {
+        tunFd?.close()
+        tunFd = null
+        Log.i("KillSwitch", "Blocking tunnel closed — internet restored")
+        super.onDestroy()
+    }
+
+    override fun onRevoke() {
+        tunFd?.close()
+        tunFd = null
+        super.onRevoke()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/l10n/app_localizations.dart';
@@ -60,7 +61,38 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ];
     final isLast = _currentIndex == slides.length - 1;
 
-    return Scaffold(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (_, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        final k = event.logicalKey;
+        // D-pad right/down OR centre OK/Enter/Space → advance / Get Started
+        if (k == LogicalKeyboardKey.arrowRight ||
+            k == LogicalKeyboardKey.arrowDown ||
+            k == LogicalKeyboardKey.select ||
+            k == LogicalKeyboardKey.enter ||
+            k == LogicalKeyboardKey.numpadEnter ||
+            k == LogicalKeyboardKey.space) {
+          _onNext();
+          return KeyEventResult.handled;
+        }
+        // D-pad left/up → go back a page
+        if (k == LogicalKeyboardKey.arrowLeft ||
+            k == LogicalKeyboardKey.arrowUp) {
+          if (_currentIndex > 0) {
+            _pageCtrl.previousPage(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      // ExcludeFocus keeps keyboard focus locked on this root node so that
+      // descendant buttons never steal it — touch events still work normally.
+      child: ExcludeFocus(
+      child: Scaffold(
       backgroundColor: AppColors.bgDark,
       body: Stack(
         children: [
@@ -228,7 +260,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ],
       ),
-    );
+      ),    // Scaffold
+      ),    // ExcludeFocus
+    );      // Focus
   }
 }
 

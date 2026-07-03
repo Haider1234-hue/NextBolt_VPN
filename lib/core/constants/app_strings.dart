@@ -51,7 +51,7 @@ class AppStrings {
   static const String autoConnect    = 'Auto Connect';
   static const String autoConnectSub = 'Connect VPN on app launch';
   static const String protocol       = 'Protocol';
-  static const String protocolSub    = 'WireGuard / OpenVPN / IKEv2';
+  static const String protocolSub    = 'WireGuard / AmneziaWG / Xray';
   static const String language       = 'Language';
   static const String privacyPolicy  = 'Privacy Policy';
   static const String termsOfService = 'Terms of Service';

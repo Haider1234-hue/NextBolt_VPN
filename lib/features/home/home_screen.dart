@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/l10n/app_localizations.dart';
 import '../../core/utils/app_utils.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../../services/vpn_service.dart';
 import '../../services/settings_service.dart';
 import '../../models/vpn_status.dart';
@@ -134,7 +135,9 @@ class _HomeTabState extends State<_HomeTab> {
           decoration: const BoxDecoration(
               gradient: AppColors.bgGradient),
           child: SafeArea(
-            child: Column(
+            child: FocusTraversalGroup(
+              policy: ReadingOrderTraversalPolicy(),
+              child: Column(
               children: [
                 _buildAppBar(context, l10n),
                 Expanded(
@@ -205,9 +208,10 @@ class _HomeTabState extends State<_HomeTab> {
                   ),
                 ),
               ],
-            ),
-          ),
-        );
+            ),        // Column
+          ),          // FocusTraversalGroup
+        ),            // SafeArea
+      );
       },
     );
   }
@@ -238,7 +242,10 @@ class _HomeTabState extends State<_HomeTab> {
             ),
           ),
           const Spacer(),
-          GestureDetector(
+          TvFocusable(
+            onTap: () => Navigator.pushNamed(context, '/premium'),
+            borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+            child: GestureDetector(
             onTap: () =>
                 Navigator.pushNamed(context, '/premium'),
             child: Container(
@@ -267,8 +274,9 @@ class _HomeTabState extends State<_HomeTab> {
                       )),
                 ],
               ),
-            ),
-          ),
+            ),   // Container
+          ),     // GestureDetector
+          ),     // TvFocusable
         ],
       ),
     );
@@ -409,9 +417,12 @@ class _PremiumBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
-      child: Container(
+      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -472,9 +483,10 @@ class _PremiumBanner extends StatelessWidget {
                   )),
             ),
           ],
-        ),
-      ),
-    );
+        ),      // Row
+      ),        // Container
+    ),          // GestureDetector
+    );          // TvFocusable
   }
 }
 

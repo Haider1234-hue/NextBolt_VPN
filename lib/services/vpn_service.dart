@@ -7,6 +7,7 @@ import '../models/vpn_status.dart';
 import '../models/server_model.dart';
 import 'ip_lookup_service.dart';
 import 'bandwidth_service.dart';
+import 'settings_service.dart';
 
 const bool kDisableAccessRestrictionsForTesting = false;
 
@@ -27,6 +28,10 @@ class VpnService extends ChangeNotifier {
   final BandwidthService bandwidth = BandwidthService();
   int _lastSessionBytes = 0;
   bool _limitDisconnectTriggered = false;
+
+  SettingsService _settingsService;
+  // True only when disconnect() was intentionally called (not an unexpected drop).
+  bool _userInitiatedDisconnect = false;
 
   // TODO(ios): providerBundleIdentifier must match a Network Extension
   // target created in Xcode (File > New > Target > Network Extension),
@@ -51,11 +56,28 @@ class VpnService extends ChangeNotifier {
   static const int _awgH3 = 3;
   static const int _awgH4 = 4;
 
-  VpnService() {
+  VpnService(this._settingsService) {
     _stageSub = _wireguard.vpnStageSnapshot.listen(_onStageChanged);
     _trafficSub = _wireguard.trafficSnapshot.listen(_onTraffic);
     unawaited(_refreshOriginalIp());
     unawaited(bandwidth.init().then((_) => notifyListeners()));
+  }
+
+  // Called by ChangeNotifierProxyProvider whenever SettingsService changes.
+  void updateSettings(SettingsService settings) {
+    final wasKillSwitchActive = _status.state == VpnState.killSwitchActive;
+    _settingsService = settings;
+    if (wasKillSwitchActive && !settings.killSwitch) {
+      // User disabled kill switch while it was blocking — restore internet.
+      unawaited(_deactivateKillSwitch().then((_) {
+        _status = VpnStatus(
+          state: VpnState.disconnected,
+          originalIp: _status.originalIp,
+        );
+        notifyListeners();
+        unawaited(_refreshOriginalIp());
+      }));
+    }
   }
 
   Future<void> setPremiumUser(bool value) async {
@@ -125,6 +147,27 @@ class VpnService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Kill switch helpers ───────────────────────────────────
+  Future<void> _activateKillSwitch() async {
+    try {
+      await _wireguard.setKillSwitch(true);
+    } catch (e) {
+      // Native side failed — fall back to plain disconnected so the user
+      // isn't left with an invisible block and no way to reconnect.
+      _status = VpnStatus(
+        state: VpnState.disconnected,
+        originalIp: _status.originalIp,
+      );
+      notifyListeners();
+    }
+  }
+
+  Future<void> _deactivateKillSwitch() async {
+    try {
+      await _wireguard.setKillSwitch(false);
+    } catch (_) {}
+  }
+
   // ── Connect ───────────────────────────────────────────────
   Future<void> connect() async {
     final server = _selectedServer;
@@ -152,6 +195,11 @@ class VpnService extends ChangeNotifier {
       }
     }
 
+    // Stop any active kill switch before establishing a new tunnel.
+    if (_status.state == VpnState.killSwitchActive) {
+      await _deactivateKillSwitch();
+    }
+    _userInitiatedDisconnect = false;
     _updateState(VpnState.connecting);
     _connectTimeoutTimer?.cancel();
     _connectTimeoutTimer = Timer(const Duration(seconds: 25), _onConnectTimeout);
@@ -181,6 +229,7 @@ class VpnService extends ChangeNotifier {
   // ── Disconnect ────────────────────────────────────────────
   Future<void> disconnect() async {
     if (_status.isDisconnected) return;
+    _userInitiatedDisconnect = true;
     _connectTimeoutTimer?.cancel();
     _updateState(VpnState.disconnecting);
     try {
@@ -309,6 +358,7 @@ $presharedLine'''
 
   Future<void> _disconnectForLimitReached() async {
     if (!_status.isConnected) return;
+    _userInitiatedDisconnect = true;
     try {
       await _wireguard.stopVpn();
     } catch (_) {}
@@ -364,6 +414,7 @@ $presharedLine'''
 
   Future<void> _disconnectUnverifiedConnection() async {
     if (!_status.isConnected) return;
+    _userInitiatedDisconnect = true;
     try {
       await _wireguard.stopVpn();
     } catch (_) {}
@@ -379,6 +430,20 @@ $presharedLine'''
 
   void _onTunnelDisconnected() {
     _stopTimers();
+    final wasUnexpected = !_userInitiatedDisconnect;
+    _userInitiatedDisconnect = false;
+
+    if (wasUnexpected && _settingsService.killSwitch) {
+      // VPN dropped without user request → block all traffic immediately.
+      _status = VpnStatus(
+        state: VpnState.killSwitchActive,
+        originalIp: _status.originalIp,
+      );
+      notifyListeners();
+      unawaited(_activateKillSwitch());
+      return;
+    }
+
     _status = VpnStatus(
       state: VpnState.disconnected,
       originalIp: _status.originalIp,

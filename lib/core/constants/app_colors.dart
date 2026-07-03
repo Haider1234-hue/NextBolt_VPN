@@ -18,6 +18,7 @@ class AppColors {
   static const Color connected    = Color(0xFF00E676);
   static const Color connecting   = Color(0xFFFFD740);
   static const Color disconnected = Color(0xFFFF1744);
+  static const Color killSwitch   = Color(0xFFFF6D00);
 
   // ── Text ──────────────────────────────────────────────────
   static const Color textPrimary   = Color(0xFFFFFFFF);
@@ -53,6 +54,11 @@ class AppColors {
 
   static const RadialGradient connectingGlow = RadialGradient(
     colors: [Color(0x44FFD740), Colors.transparent],
+    radius: 0.8,
+  );
+
+  static const RadialGradient killSwitchGlow = RadialGradient(
+    colors: [Color(0x44FF6D00), Colors.transparent],
     radius: 0.8,
   );
 }

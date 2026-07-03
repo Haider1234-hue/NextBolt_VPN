@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/widgets/tv_focusable.dart';
 import '../../../models/vpn_status.dart';
 
 class ConnectButton extends StatefulWidget {
@@ -60,17 +61,22 @@ class _ConnectButtonState extends State<ConnectButton>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvFocusable(
+      autofocus: true,
       onTap: widget.status.isConnecting ? null : widget.onTap,
-      child: AnimatedBuilder(
-        animation: _pulseAnim,
-        builder: (_, __) {
-          final scale = widget.status.isConnecting ? _pulseAnim.value : 1.0;
-          return Transform.scale(
-            scale: scale,
-            child: _buildButton(),
-          );
-        },
+      borderRadius: BorderRadius.circular(AppSizes.connectButtonSize / 2),
+      child: GestureDetector(
+        onTap: widget.status.isConnecting ? null : widget.onTap,
+        child: AnimatedBuilder(
+          animation: _pulseAnim,
+          builder: (_, __) {
+            final scale = widget.status.isConnecting ? _pulseAnim.value : 1.0;
+            return Transform.scale(
+              scale: scale,
+              child: _buildButton(),
+            );
+          },
+        ),
       ),
     );
   }

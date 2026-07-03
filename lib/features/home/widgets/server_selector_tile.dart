@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/l10n/app_localizations.dart';
+import '../../../core/widgets/tv_focusable.dart';
 import '../../../models/server_model.dart';
 
 class ServerSelectorTile extends StatelessWidget {
@@ -18,9 +19,12 @@ class ServerSelectorTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final hasServer = server != null;
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
-      child: Container(
+      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.bgCard,
@@ -94,7 +98,8 @@ class ServerSelectorTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
+      ),        // Container
+      ),        // GestureDetector
+    );          // TvFocusable
   }
 }

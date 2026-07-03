@@ -28,23 +28,22 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-
-        ndk {
-            abiFilters += listOf("armeabi-v7a")
-        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Restrict to ARM only for release APK size.
+            ndk {
+                abiFilters += listOf("armeabi-v7a")
+            }
             signingConfig = signingConfigs.getByName("debug")
         }
+        // Debug builds include all ABIs so the x86 emulator works.
     }
 
     packaging {
         jniLibs {
-            excludes += listOf("lib/arm64-v8a/**", "lib/x86_64/**")
+            // Only strip arm64/x86_64 in release; debug needs x86 for emulator.
         }
 
         resources {

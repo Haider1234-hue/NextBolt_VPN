@@ -36,6 +36,9 @@ abstract class WireGuardFlutterInterface {
   /// Checks if the VPN is currently connected.
   Future<bool> isConnected() =>
       stage().then((stage) => stage == VpnStage.connected);
+
+  /// Enables or disables the kill switch (blocking VPN).
+  Future<void> setKillSwitch(bool enabled);
 }
 
 /// Represents the current stage of the VPN connection.

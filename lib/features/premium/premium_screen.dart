@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/l10n/app_localizations.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../../services/vpn_service.dart';
 
 class PremiumScreen extends StatefulWidget {
@@ -124,13 +125,18 @@ class _PremiumScreenState extends State<PremiumScreen> {
                         Row(
                           children: _plans
                               .map((p) => Expanded(
-                                    child: GestureDetector(
+                                    child: TvFocusable(
+                                      autofocus: p.id == 1,
                                       onTap: () => setState(
                                           () => _selectedPlan = p.id),
-                                      child: _PlanCard(
-                                        plan: p,
-                                        selected:
-                                            _selectedPlan == p.id,
+                                      child: GestureDetector(
+                                        onTap: () => setState(
+                                            () => _selectedPlan = p.id),
+                                        child: _PlanCard(
+                                          plan: p,
+                                          selected:
+                                              _selectedPlan == p.id,
+                                        ),
                                       ),
                                     ),
                                   ))

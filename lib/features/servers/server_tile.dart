@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../../models/server_model.dart';
 
 class ServerTile extends StatelessWidget {
@@ -17,7 +18,10 @@ class ServerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return TvFocusable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      child: Container(
       margin: const EdgeInsets.symmetric(
         horizontal: AppSizes.md,
         vertical: 4,
@@ -32,7 +36,8 @@ class ServerTile extends StatelessWidget {
           width: isSelected ? 1.5 : 1,
         ),
       ),
-      child: ListTile(
+      child: ExcludeFocus(
+        child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSizes.md,
@@ -120,7 +125,9 @@ class ServerTile extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
+      ),        // ListTile
+      ),        // ExcludeFocus
+    ),          // Container
+    );          // TvFocusable
   }
 }

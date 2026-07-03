@@ -8,6 +8,7 @@ enum VpnState {
   connected,
   disconnecting,
   error,
+  killSwitchActive,
 }
 
 class VpnStatus {
@@ -53,34 +54,39 @@ class VpnStatus {
   bool get isConnecting   =>
       state == VpnState.connecting || state == VpnState.disconnecting;
   bool get isDisconnected =>
-      state == VpnState.disconnected || state == VpnState.error;
+      state == VpnState.disconnected ||
+      state == VpnState.error ||
+      state == VpnState.killSwitchActive;
 
   String statusLabel(AppLocalizations l10n) {
     switch (state) {
-      case VpnState.disconnected:  return l10n.notConnected;
-      case VpnState.connecting:    return l10n.connecting;
-      case VpnState.connected:     return l10n.connected;
-      case VpnState.disconnecting: return l10n.disconnecting;
-      case VpnState.error:         return l10n.connectionFailed;
+      case VpnState.disconnected:    return l10n.notConnected;
+      case VpnState.connecting:      return l10n.connecting;
+      case VpnState.connected:       return l10n.connected;
+      case VpnState.disconnecting:   return l10n.disconnecting;
+      case VpnState.error:           return l10n.connectionFailed;
+      case VpnState.killSwitchActive: return 'Kill Switch Active';
     }
   }
 
   Color get statusColor {
     switch (state) {
-      case VpnState.disconnected:  return AppColors.disconnected;
-      case VpnState.connecting:    return AppColors.connecting;
-      case VpnState.connected:     return AppColors.connected;
-      case VpnState.disconnecting: return AppColors.connecting;
-      case VpnState.error:         return AppColors.disconnected;
+      case VpnState.disconnected:    return AppColors.disconnected;
+      case VpnState.connecting:      return AppColors.connecting;
+      case VpnState.connected:       return AppColors.connected;
+      case VpnState.disconnecting:   return AppColors.connecting;
+      case VpnState.error:           return AppColors.disconnected;
+      case VpnState.killSwitchActive: return AppColors.killSwitch;
     }
   }
 
   RadialGradient get glowGradient {
     switch (state) {
-      case VpnState.connected:     return AppColors.connectedGlow;
-      case VpnState.connecting:    return AppColors.connectingGlow;
-      case VpnState.disconnecting: return AppColors.connectingGlow;
-      default:                     return AppColors.disconnectedGlow;
+      case VpnState.connected:       return AppColors.connectedGlow;
+      case VpnState.connecting:      return AppColors.connectingGlow;
+      case VpnState.disconnecting:   return AppColors.connectingGlow;
+      case VpnState.killSwitchActive: return AppColors.killSwitchGlow;
+      default:                       return AppColors.disconnectedGlow;
     }
   }
 

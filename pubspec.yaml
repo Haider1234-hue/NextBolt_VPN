@@ -24,6 +24,9 @@ dependencies:
   # Open URLs / email / Play Store
   url_launcher: ^6.3.0
 
+  # Read app version / build number at runtime
+  package_info_plus: ^8.0.0
+
   cupertino_icons: ^1.0.6
   amneziawg_flutter:
     path: packages/amneziawg_flutter
