@@ -27,6 +27,9 @@ dependencies:
   # Read app version / build number at runtime
   package_info_plus: ^8.0.0
 
+  # In-app purchases (Google Play Billing + Apple StoreKit)
+  in_app_purchase: ^3.2.0
+
   cupertino_icons: ^1.0.6
   amneziawg_flutter:
     path: packages/amneziawg_flutter

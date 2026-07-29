@@ -1,8 +1,17 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -20,30 +29,52 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.nextboltvpn"
+        applicationId = "com.torcia.secure.vpn.proxy"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // 64-bit ARM only — deliberately drops 32-bit armeabi-v7a support to
+        // minimize app size, excluding devices older than ~2017. Filters out
+        // native libs pulled in by dependencies (e.g. the amneziawg-android
+        // AAR) — must live here, not in buildTypes, or AGP ignores it for
+        // dependency .so files. Flutter's own engine/app libs are controlled
+        // separately via `--target-platform` on the build command.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+            storePassword = keystoreProperties.getProperty("storePassword")
+        }
     }
 
     buildTypes {
         release {
-            // Restrict to ARM only for release APK size.
-            ndk {
-                abiFilters += listOf("armeabi-v7a")
-            }
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
-        // Debug builds include all ABIs so the x86 emulator works.
     }
 
     packaging {
         jniLibs {
-            // Only strip arm64/x86_64 in release; debug needs x86 for emulator.
+            // defaultConfig.ndk.abiFilters doesn't filter prebuilt .so files
+            // that ship inside dependency AARs (e.g. amneziawg-android) in
+            // this AGP version — exclude everything but 64-bit ARM directly.
+            excludes += listOf("lib/x86/**", "lib/x86_64/**", "lib/armeabi-v7a/**")
         }
 
         resources {

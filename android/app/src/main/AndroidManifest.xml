@@ -3,12 +3,18 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <!-- TV: remotes have no touchscreen -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <!-- Required for all networking (VPN tunnel, server list API, IAP validation);
+         debug/profile manifests only grant this for non-release builds. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Google Play Billing -->
+    <uses-permission android:name="com.android.vending.BILLING" />
 
     <application
         android:label="nextboltvpn"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:banner="@mipmap/ic_launcher">
+        android:banner="@drawable/banner">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,6 +32,14 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Impeller has a known rotation-transform bug on some virtualized/
+                 software-GPU environments (cloud emulators like appetize.io): the
+                 layout metrics update correctly on rotation but the composited
+                 buffer stays rotated 90° off, though touch input matches the
+                 (correct) logical layout. Falling back to Skia avoids it. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.EnableImpeller"
+              android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

@@ -265,17 +265,17 @@ class VpnService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── WireGuard config ──────────────────────────────────────
+  // ── Tunnel config ─────────────────────────────────────────
+  // Returns a wg-quick config string. AmneziaWG adds obfuscation header lines
+  // (Jc/Jmin/Jmax/S1/S2/H1-H4); plain WireGuard omits them so the tunnel
+  // library negotiates a standard handshake without obfuscation.
   String? getWireGuardConfig() {
     final s = _selectedServer;
     if (s == null) return null;
     final presharedLine =
         s.presharedKey.isNotEmpty ? 'PresharedKey = ${s.presharedKey}\n' : '';
-    return '''
-[Interface]
-PrivateKey = ${s.privateKey}
-Address = ${s.address}
-DNS = ${s.dns}
+    final useAmnezia = _settingsService.protocol == 'AmneziaWG';
+    final amneziaLines = useAmnezia ? '''
 Jc = $_awgJc
 Jmin = $_awgJmin
 Jmax = $_awgJmax
@@ -285,7 +285,13 @@ H1 = $_awgH1
 H2 = $_awgH2
 H3 = $_awgH3
 H4 = $_awgH4
-
+''' : '';
+    return '''
+[Interface]
+PrivateKey = ${s.privateKey}
+Address = ${s.address}
+DNS = ${s.dns}
+$amneziaLines
 [Peer]
 PublicKey = ${s.publicKey}
 $presharedLine'''
