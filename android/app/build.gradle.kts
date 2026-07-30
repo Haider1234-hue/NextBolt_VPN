@@ -37,14 +37,15 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // 64-bit ARM only — deliberately drops 32-bit armeabi-v7a support to
-        // minimize app size, excluding devices older than ~2017. Filters out
-        // native libs pulled in by dependencies (e.g. the amneziawg-android
-        // AAR) — must live here, not in buildTypes, or AGP ignores it for
-        // dependency .so files. Flutter's own engine/app libs are controlled
-        // separately via `--target-platform` on the build command.
+        // Both ARM ABIs are required: Amazon Fire TV sticks (and older Fire
+        // tablets) run a 32-bit armeabi-v7a userspace, and an APK with no
+        // matching ABI simply fails to install there. x86/x86_64 stay out —
+        // no Fire or retail Android device uses them, only emulators.
+        // Must live here, not in buildTypes, or AGP ignores it for the .so
+        // files inside dependency AARs (e.g. amneziawg-android). Flutter's
+        // own engine/app libs are controlled separately via `--target-platform`.
         ndk {
-            abiFilters += listOf("arm64-v8a")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }
     }
 
@@ -73,8 +74,8 @@ android {
         jniLibs {
             // defaultConfig.ndk.abiFilters doesn't filter prebuilt .so files
             // that ship inside dependency AARs (e.g. amneziawg-android) in
-            // this AGP version — exclude everything but 64-bit ARM directly.
-            excludes += listOf("lib/x86/**", "lib/x86_64/**", "lib/armeabi-v7a/**")
+            // this AGP version — exclude the emulator-only ABIs directly.
+            excludes += listOf("lib/x86/**", "lib/x86_64/**")
         }
 
         resources {
