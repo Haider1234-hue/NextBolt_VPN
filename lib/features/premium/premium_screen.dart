@@ -105,7 +105,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Store not available. Make sure you have Google Play installed.',
+            'Store not available. Please check your connection and try again.',
           ),
           backgroundColor: AppColors.disconnected,
         ),
@@ -118,7 +118,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
 
   String _priceFor(_PlanMeta meta, IapService iap) {
     final product = iap.productFor(meta.productId);
-    return product?.price ?? meta.fallbackPrice;
+    return product?.displayPrice ?? meta.fallbackPrice;
   }
 
   @override

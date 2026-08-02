@@ -1,7 +1,7 @@
 name: nextboltvpn
 description: NextBolt VPN - Fast, Private & Secure VPN for iOS
 publish_to: "none"
-version: 1.0.0+2
+version: 1.0.0+3
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -27,8 +27,10 @@ dependencies:
   # Read app version / build number at runtime
   package_info_plus: ^8.0.0
 
-  # In-app purchases (Google Play Billing + Apple StoreKit)
-  in_app_purchase: ^3.2.0
+  # In-app purchases (Google Play Billing, Amazon Appstore IAP, Apple StoreKit).
+  # The official in_app_purchase plugin is Play-Billing-only on Android, which
+  # cannot initialize on Fire OS — see android/gradle.properties fireOsEnabled.
+  flutter_inapp_purchase: ^10.0.0
 
   cupertino_icons: ^1.0.6
   amneziawg_flutter:
