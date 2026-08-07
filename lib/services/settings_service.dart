@@ -7,10 +7,16 @@ class SettingsService extends ChangeNotifier {
   static const _keyLanguage = 'language';
   static const _keyProtocol = 'protocol';
 
+  /// Protocols the app actually implements. Xray was listed here once but was
+  /// never implemented, so it is not offered; anything stored that isn't in
+  /// this list falls back to [defaultProtocol] on load.
+  static const List<String> supportedProtocols = ['WireGuard', 'AmneziaWG'];
+  static const String defaultProtocol = 'WireGuard';
+
   bool _killSwitch = false;
   bool _autoConnect = false;
   String _language = 'English';
-  String _protocol = 'WireGuard';
+  String _protocol = defaultProtocol;
   bool _loaded = false;
 
   bool get killSwitch => _killSwitch;
@@ -37,7 +43,11 @@ class SettingsService extends ChangeNotifier {
     _killSwitch = prefs.getBool(_keyKillSwitch) ?? false;
     _autoConnect = prefs.getBool(_keyAutoConnect) ?? false;
     _language = prefs.getString(_keyLanguage) ?? 'English';
-    _protocol = prefs.getString(_keyProtocol) ?? 'WireGuard';
+    final storedProtocol = prefs.getString(_keyProtocol) ?? defaultProtocol;
+    // Existing installs may still hold a protocol we no longer offer (Xray).
+    _protocol = supportedProtocols.contains(storedProtocol)
+        ? storedProtocol
+        : defaultProtocol;
     _loaded = true;
     notifyListeners();
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'core/config/feature_flags.dart';
 import 'core/theme/app_theme.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
@@ -40,7 +41,10 @@ class NextBoltApp extends StatelessWidget {
             '/home': (context) => const HomeScreen(),
             '/servers': (context) => const ServerListScreen(),
             '/settings': (context) => const SettingsScreen(),
-            '/premium': (context) => const PremiumScreen(),
+            // Registered only while the paid tier is live; PremiumScreen
+            // itself is untouched. See FeatureFlags.premiumEnabled.
+            if (FeatureFlags.premiumEnabled)
+              '/premium': (context) => const PremiumScreen(),
           },
         );
       },

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/config/feature_flags.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/l10n/app_localizations.dart';
@@ -197,10 +198,13 @@ class _HomeTabState extends State<_HomeTab> {
                         const SizedBox(height: AppSizes.lg),
 
                         // Premium banner
-                        _PremiumBanner(
-                          onTap: () => Navigator.pushNamed(
-                              context, '/premium'),
-                        ),
+                        if (FeatureFlags.premiumEnabled) ...[
+                          _PremiumBanner(
+                            onTap: () => Navigator.pushNamed(
+                                context, '/premium'),
+                          ),
+                          const SizedBox(height: AppSizes.lg),
+                        ],
 
                         const SizedBox(height: AppSizes.xl),
                       ],
@@ -242,6 +246,7 @@ class _HomeTabState extends State<_HomeTab> {
             ),
           ),
           const Spacer(),
+          if (FeatureFlags.premiumEnabled)
           TvFocusable(
             onTap: () => Navigator.pushNamed(context, '/premium'),
             borderRadius: BorderRadius.circular(AppSizes.radiusFull),
@@ -359,6 +364,7 @@ class _BandwidthUsageRow extends StatelessWidget {
     final used = controller.bandwidthUsedBytes;
     final limit = controller.bandwidthLimitBytes;
     final isPremium = controller.isPremiumUser;
+    final isUnlimited = controller.isBandwidthUnlimited;
     final progress = limit > 0 ? (used / limit).clamp(0.0, 1.0) : 0.0;
     final l10n = AppLocalizations.of(context);
 
@@ -383,7 +389,9 @@ class _BandwidthUsageRow extends StatelessWidget {
                 ),
               ),
               Text(
-                '${AppUtils.formatDataSize(used)} / ${AppUtils.formatDataSize(limit)}',
+                isUnlimited
+                    ? AppUtils.formatDataSize(used)
+                    : '${AppUtils.formatDataSize(used)} / ${AppUtils.formatDataSize(limit)}',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 12,
@@ -392,18 +400,22 @@ class _BandwidthUsageRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 5,
-              backgroundColor: AppColors.divider,
-              color: progress >= 1.0
-                  ? AppColors.disconnected
-                  : AppColors.cyan,
+          // No quota to visualise when usage is unlimited — a bar creeping
+          // toward a cap that is never enforced just reads as a warning.
+          if (!isUnlimited) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 5,
+                backgroundColor: AppColors.divider,
+                color: progress >= 1.0
+                    ? AppColors.disconnected
+                    : AppColors.cyan,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

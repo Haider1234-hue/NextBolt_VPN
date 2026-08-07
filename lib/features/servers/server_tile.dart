@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/config/feature_flags.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/widgets/tv_focusable.dart';
@@ -74,7 +75,7 @@ class ServerTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (server.isPremium) ...[
+            if (FeatureFlags.premiumEnabled && server.isPremium) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -111,7 +112,7 @@ class ServerTile extends StatelessWidget {
                 color: AppColors.cyan,
                 size: 20,
               )
-            else if (server.isPremium)
+            else if (FeatureFlags.premiumEnabled && server.isPremium)
               const Icon(
                 Icons.lock_outline_rounded,
                 color: AppColors.textHint,

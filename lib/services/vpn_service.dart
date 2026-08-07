@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:amneziawg_flutter/wireguard_flutter_plus.dart';
+import '../core/config/feature_flags.dart';
 import '../models/vpn_status.dart';
 import '../models/server_model.dart';
 import 'ip_lookup_service.dart';
@@ -174,7 +175,10 @@ class VpnService extends ChangeNotifier {
     if (server == null) return;
     if (!_status.isDisconnected) return;
 
-    if (!kDisableAccessRestrictionsForTesting) {
+    // With the paid tier switched off every server is free and there is no
+    // quota, so neither gate below applies — and there'd be no upgrade screen
+    // to send the user to anyway.
+    if (FeatureFlags.premiumEnabled && !kDisableAccessRestrictionsForTesting) {
       if (server.isPremium && !bandwidth.isPremium) {
         _status = _status.copyWith(
           state: VpnState.error,

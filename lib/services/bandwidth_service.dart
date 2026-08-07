@@ -1,8 +1,13 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/config/feature_flags.dart';
 
 /// Tracks per-user data quotas:
 /// - Free users: 500MB/day, resets at local midnight.
 /// - Premium users: 100GB/month, resets on the 1st of each month.
+///
+/// While [FeatureFlags.premiumEnabled] is false there is no way to upgrade,
+/// so quotas are lifted entirely rather than stranding users at a cap they
+/// cannot lift. Usage is still tracked, just never enforced.
 class BandwidthService {
   static const int freeDailyLimitBytes = 500 * 1024 * 1024;
   static const int premiumMonthlyLimitBytes = 100 * 1024 * 1024 * 1024;
@@ -19,12 +24,20 @@ class BandwidthService {
 
   bool get isReady => _prefs != null;
 
+  /// True when the user has no quota — either they bought Pro, or the paid
+  /// tier is switched off entirely and everyone is unlimited.
+  bool get isUnlimited => !FeatureFlags.premiumEnabled || isPremium;
+
+  /// The tier's nominal quota. Meaningless while [isUnlimited] is true —
+  /// check that first. Never gate behaviour on this value directly; use
+  /// [isLimitReached], which already accounts for the paid tier being off.
   int get limitBytes =>
       isPremium ? premiumMonthlyLimitBytes : freeDailyLimitBytes;
 
   int get remainingBytes => (limitBytes - usedBytes).clamp(0, limitBytes);
 
-  bool get isLimitReached => isReady && usedBytes >= limitBytes;
+  bool get isLimitReached =>
+      FeatureFlags.premiumEnabled && isReady && usedBytes >= limitBytes;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();

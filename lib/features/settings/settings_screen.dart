@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/config/feature_flags.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/l10n/app_localizations.dart';
@@ -17,16 +18,23 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  static const List<String> _protocols = ['WireGuard', 'AmneziaWG', 'Xray'];
+  static const List<String> _protocols = SettingsService.supportedProtocols;
   static const List<String> _languages = ['English', 'Español', 'Deutsch', 'Français'];
 
-  static const String _privacyPolicyUrl = 'https://nextboltvpn.com/privacy-policy';
-  static const String _termsUrl         = 'https://nextboltvpn.com/terms-of-service';
+  static const String _privacyPolicyUrl =
+      'https://nextboltvpn.com/privacy-policy.html';
+  static const String _termsUrl =
+      'https://nextboltvpn.com/terms-of-service.html';
   static const String _helpCenterUrl    = 'https://nextboltvpn.com/help';
-  static const String _supportEmail     = 'support@nextboltvpn.com';
-  // TODO: replace with real Play Store listing ID once published
-  static const String _playStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.nextboltvpn.app';
+  static const String _supportEmail     = 'torciaapps2.0@gmail.com';
+  static const String _packageName = 'com.torcia.secure.vpn.proxy';
+
+  /// Opens the listing straight in the Amazon Appstore app.
+  static const String _amazonAppUrl = 'amzn://apps/android?p=$_packageName';
+
+  /// Browser fallback for devices without the Appstore app installed.
+  static const String _amazonWebUrl =
+      'https://www.amazon.com/gp/mas/dl/android?p=$_packageName';
 
   String _version = '';
   String _buildNumber = '';
@@ -44,6 +52,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _version = info.version;
         _buildNumber = info.buildNumber;
       });
+    }
+  }
+
+  /// Opens the Amazon Appstore listing so the user can leave a review.
+  /// Tries the native app first and falls back to the web listing, since
+  /// `amzn://` resolves to nothing when the Appstore app isn't installed.
+  Future<void> _launchAmazonListing(BuildContext context) async {
+    final appUri = Uri.parse(_amazonAppUrl);
+    try {
+      if (await canLaunchUrl(appUri) &&
+          await launchUrl(appUri, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (_) {
+      // Fall through to the browser listing below.
+    }
+    if (context.mounted) {
+      await _launchUrl(context, _amazonWebUrl);
     }
   }
 
@@ -248,6 +274,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: AppSizes.lg),
 
               // ── SUPPORT & LEGAL ───────────────────────────────
+              // Rate Us, Contact Support, Privacy Policy and Terms stay
+              // regardless of the support flag: the stores require a reachable
+              // privacy policy and support contact, and Rate Us points at the
+              // live Amazon listing. The entries still behind the flag point
+              // at pages that don't exist yet.
               _buildSectionHeader(l10n.support),
               _buildCard([
                 _buildActionTile(
@@ -255,31 +286,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   iconColor: const Color(0xFFFFD700),
                   title: l10n.rateUs,
                   subtitle: 'Enjoying the app? Leave us a review',
-                  onTap: () => _launchUrl(context, _playStoreUrl),
+                  onTap: () => _launchAmazonListing(context),
                 ),
                 const Divider(),
+                if (FeatureFlags.supportSectionEnabled) ...[
+                  _buildActionTile(
+                    icon: Icons.help_outline_rounded,
+                    iconColor: AppColors.connecting,
+                    title: 'Help Center',
+                    subtitle: 'FAQs, guides & troubleshooting',
+                    onTap: () => _launchUrl(context, _helpCenterUrl),
+                  ),
+                  const Divider(),
+                  _buildActionTile(
+                    icon: Icons.share_rounded,
+                    iconColor: AppColors.connected,
+                    title: 'Share NextBolt VPN',
+                    subtitle: 'Recommend us to friends & family',
+                    onTap: _shareApp,
+                  ),
+                  const Divider(),
+                ],
                 _buildActionTile(
                   icon: Icons.headset_mic_rounded,
                   iconColor: AppColors.cyan,
                   title: l10n.contactSupport,
                   subtitle: _supportEmail,
                   onTap: () => _launchEmail(context),
-                ),
-                const Divider(),
-                _buildActionTile(
-                  icon: Icons.help_outline_rounded,
-                  iconColor: AppColors.connecting,
-                  title: 'Help Center',
-                  subtitle: 'FAQs, guides & troubleshooting',
-                  onTap: () => _launchUrl(context, _helpCenterUrl),
-                ),
-                const Divider(),
-                _buildActionTile(
-                  icon: Icons.share_rounded,
-                  iconColor: AppColors.connected,
-                  title: 'Share NextBolt VPN',
-                  subtitle: 'Recommend us to friends & family',
-                  onTap: _shareApp,
                 ),
                 const Divider(),
                 _buildActionTile(

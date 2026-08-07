@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/config/feature_flags.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/l10n/app_localizations.dart';
@@ -125,7 +126,11 @@ class _ServerListScreenState extends State<ServerListScreen> {
 
           // ── Server List ──────────────────────────────────
           final controller    = ctx.read<HomeController>();
-          final freeServers    = _filtered(vpnService.freeServers);
+          // With the paid tier off every server is free, so they all go in
+          // the first section and the locked section below is skipped.
+          final freeServers    = _filtered(FeatureFlags.premiumEnabled
+              ? vpnService.freeServers
+              : vpnService.servers);
           final premiumServers = _filtered(vpnService.premiumServers);
 
           return Column(
@@ -186,7 +191,8 @@ class _ServerListScreenState extends State<ServerListScreen> {
                         ),
                       ),
                     ],
-                    if (premiumServers.isNotEmpty) ...[
+                    if (FeatureFlags.premiumEnabled &&
+                        premiumServers.isNotEmpty) ...[
                       const SizedBox(height: AppSizes.sm),
                       _SectionHeader(
                         l10n.premiumServers,

@@ -18,6 +18,7 @@ class HomeController extends ChangeNotifier {
   String? get serverError         => _vpnService.serverError;
 
   bool get isPremiumUser     => _vpnService.bandwidth.isPremium;
+  bool get isBandwidthUnlimited => _vpnService.bandwidth.isUnlimited;
   int get bandwidthUsedBytes => _vpnService.bandwidth.usedBytes;
   int get bandwidthLimitBytes => _vpnService.bandwidth.limitBytes;
 

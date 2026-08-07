@@ -27,12 +27,7 @@ dependencies:
   # Read app version / build number at runtime
   package_info_plus: ^8.0.0
 
-  # In-app purchases (Google Play Billing, Amazon Appstore IAP, Apple StoreKit).
-  # The official in_app_purchase plugin is Play-Billing-only on Android, which
-  # cannot initialize on Fire OS — see android/gradle.properties fireOsEnabled.
-  flutter_inapp_purchase: ^10.0.0
 
-  cupertino_icons: ^1.0.6
   amneziawg_flutter:
     path: packages/amneziawg_flutter
 
@@ -44,8 +39,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/icon/
+  # assets/icon/ is deliberately NOT bundled: app_icon.png is only consumed by
+  # flutter_launcher_icons at build time to generate the mipmaps, and nothing
+  # loads it at runtime. The file stays on disk so `flutter pub run
+  # flutter_launcher_icons` still works — it just isn't shipped in the APK.
 
 flutter_launcher_icons:
   android: true

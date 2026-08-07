@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/feature_flags.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/l10n/app_localizations.dart';
@@ -70,7 +71,9 @@ class ServerSelectorTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            if (hasServer && server!.isPremium) ...[
+            if (FeatureFlags.premiumEnabled &&
+                hasServer &&
+                server!.isPremium) ...[
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

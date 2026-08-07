@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'app.dart';
 import 'features/home/home_controller.dart';
-import 'services/iap_service.dart';
 import 'services/settings_service.dart';
 import 'services/vpn_service.dart';
 
@@ -68,10 +67,6 @@ void main() async {
         ChangeNotifierProxyProvider<SettingsService, VpnService>(
           create: (ctx) => VpnService(ctx.read<SettingsService>()),
           update: (ctx, settings, prev) => prev!..updateSettings(settings),
-        ),
-        ChangeNotifierProxyProvider<VpnService, IapService>(
-          create: (ctx) => IapService(ctx.read<VpnService>()),
-          update: (ctx, vpn, prev) => prev!..updateVpnService(vpn),
         ),
         ChangeNotifierProxyProvider<VpnService, HomeController>(
           create: (ctx) => HomeController(ctx.read<VpnService>()),

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:nextboltvpn/app.dart';
+import 'package:nextboltvpn/services/settings_service.dart';
 import 'package:nextboltvpn/services/vpn_service.dart';
 import 'package:nextboltvpn/features/home/home_controller.dart';
 import 'package:nextboltvpn/core/constants/app_strings.dart';
@@ -11,7 +12,11 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (_) => VpnService()),
+          ChangeNotifierProvider(create: (_) => SettingsService()),
+          ChangeNotifierProxyProvider<SettingsService, VpnService>(
+            create: (ctx) => VpnService(ctx.read<SettingsService>()),
+            update: (ctx, settings, prev) => prev!..updateSettings(settings),
+          ),
           ChangeNotifierProxyProvider<VpnService, HomeController>(
             create: (ctx) => HomeController(ctx.read<VpnService>()),
             update: (ctx, vpn, prev) => prev!..updateVpnService(vpn),

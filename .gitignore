@@ -46,3 +46,6 @@ app.*.map.json
 
 # Signed release binaries kept locally for store upload — never commit
 /release_artifacts/
+
+# Local Gradle build cache — never commit
+/android/.gradle-build-cache/
